@@ -1,29 +1,30 @@
 '''
-For FA25_bowmass
-WORKED!!!!!
+DAFx 2025: Physics-Informed Neural Network for Nonlinear Bow-String Friction
+- Main Script for Training and Testing PI-DeepONet
+- Author: Xinmeng Luan
+- Contact: xinmeng.luan@mail.mcgill.ca
+- Date: 11/05/2025
 '''
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
 import os
 import sys
-sys.path.append('/home/xinmeng/pinn_bow_mass')
 from itertools import cycle
-import bow_main.data.para_bow as para
+import utils.para_bow as para
 from datetime import datetime
 from scipy.io import loadmat
 import time
 from tqdm import tqdm
-from bow_main.FA25_bowmass.soap import SOAP
-from matplotlib.ticker import ScalarFormatter
+from utils.soap import SOAP
+import utils.nn_deeponet_fourier as NN
 import pickle
+import matplotlib
+matplotlib.use('module://backend_interagg')
 from pyhessian import hessian # Hessian computation
-from density_plot import get_esd_plot
-# matplotlib.use('module://backend_interagg')
-#
-os.environ["LD_LIBRARY_PATH"] = "/home/xinmeng/miniconda3/envs/thesis/lib:/nas/home/xluan/miniconda3/envs/thesis/lib/cuda/lib64"
+from export_result.density_plot import get_esd_plot
+
 os.environ['CUDA_ALLOW_GROWTH'] = 'True'
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
@@ -107,7 +108,7 @@ class Trainer:
 
     def pre_proc(self):
         # if self.isfourier:
-        import bow_main.network.nn_deeponet_fourier as NN
+
 
         # else:
         #     import main.network.nn_deeponet as NN
@@ -1002,25 +1003,12 @@ class Trainer:
             res2_losses = checkpoint['res2_losses']
             ic1_losses = checkpoint['ic1_losses']
             ic2_losses = checkpoint['ic2_losses']
-            res1_ws = checkpoint['res1_ws']
-            res2_ws = checkpoint['res2_wss']
-            ic1_ws = checkpoint['ic1_ws']
-            ic2_ws = checkpoint['ic2_ws']
-            # data1_ws = checkpoint['data1_ws']
-            # data2_ws = checkpoint['data2_ws']
 
             tot_losses = [loss for loss in tot_losses]
             res1_losses = [loss for loss in res1_losses]
             res2_losses = [loss for loss in res2_losses]
             ic1_losses = [loss for loss in ic1_losses]
             ic2_losses = [loss for loss in ic2_losses]
-
-            res1_ws = [loss for loss in res1_ws]
-            res2_ws = [loss for loss in res2_ws]
-            ic1_ws = [loss for loss in ic1_ws]
-            ic2_ws = [loss for loss in ic2_ws]
-            # data1_ws = [loss for loss in data1_ws]
-            # data2_ws = [loss for loss in data2_ws]
 
             # Plot loss
             plt.figure(figsize=(10, 6))
@@ -1039,31 +1027,9 @@ class Trainer:
             plt.grid(True)
             plt.show()
 
-            plt.figure(figsize=(10, 6))
-
-
-            plt.plot( res1_ws, label='Residual weight', color='red')
-            plt.plot(res2_ws, label='Residual weight', color='blue')
-            plt.plot( ic1_ws, label='IC1 weight', color='green')
-            plt.plot( ic2_ws, label='IC2 weight', color='orange')
-            # plt.plot( data1_ws, label='data1 weight', color='pink')
-            # plt.plot( data2_ws, label='data2 weight', color='brown')
-
-            plt.yscale('log')
-            plt.xlabel('Epochs')
-            plt.ylabel('weight')
-            plt.title('Training Losses Over Epochs')
-            plt.legend()
-            plt.grid(True)
-            plt.show()
-
-            # test_Q = int(44100*100*self.time_length)
-            # device = 'cpu'
-            # self.model = self.model.to(device)
             self.Q = 500
             t = torch.linspace(0, self.time_length, self.Q).to(device).requires_grad_()
             t = t.unsqueeze(1)
-            # t = torch.rand(self.Q, 1).to(device).requires_grad_()
             p0_value =  0
             q0_value = 0
             tmax = 0.5
@@ -1090,98 +1056,14 @@ class Trainer:
             p_deeponet = np.array(self.p_vis)
             q_deeponet = np.array(self.q_vis)
             t_deeponet = np.linspace(0, tmax, np.size(q_deeponet))
-            import pickle
+
             with open(
                     f'/home/xinmeng/pinn_bow_mass/trained_model/fa25/export_figure/'
                     f'fb_{self.Fb}_deeponet_hybrid.pkl',
                     "wb") as f:
                 pickle.dump((t_deeponet, p_deeponet, q_deeponet), f)
 
-    def continue_train_lbfgs(self, model_path):
-        self.pre_proc()
 
-        checkpoint = torch.load(model_path)
-        self.model.load_state_dict(checkpoint['model_state_dict'])
-
-        self.tot_losses = checkpoint['tot_losses']
-        self.res_losses = checkpoint['res_losses']
-        self.ic1_losses = checkpoint['ic1_losses']
-        self.ic2_losses = checkpoint['ic2_losses']
-
-        optimizer = torch.optim.LBFGS(self.model.parameters(), lr=1, max_iter=20, history_size=10)
-
-        if self.Fb == 1000:
-            train_res_loader, train_ic_loader = self.get_dataset_from_fd()
-        else:
-            train_res_loader, train_ic_loader = self.get_dataset()
-
-        ic_loader_cycle = cycle(train_ic_loader)
-
-        for epoch in tqdm(range(self.n_epochs), desc="Training Progress (Epochs)"):
-            total_loss, total_loss_res, total_loss_ic1, total_loss_ic2 = 0, 0, 0, 0
-
-            for (t_res, pq0_res) in tqdm(train_res_loader, desc="Batch Progress", leave=False):
-                (t_ic, pq0_ic, pq0_ic_gt) = next(ic_loader_cycle)  # cycle ic dataset
-
-                t_res, pq0_res, t_ic, pq0_ic, pq0_ic_gt = (
-                    t_res.to(device).requires_grad_(),
-                    pq0_res.to(device).requires_grad_(),
-                    t_ic.to(device).requires_grad_(),
-                    pq0_ic.to(device).requires_grad_(),
-                    pq0_ic_gt.to(device).requires_grad_()
-                )
-
-                def closure():
-                    optimizer.zero_grad()
-                    loss_res = self.res_loss(t_res, pq0_res)
-                    loss_ic1, loss_ic2 = self.ic_loss(t_ic, pq0_ic, pq0_ic_gt)
-
-                    loss_res = loss_res / 1e6
-                    loss_ic1 = loss_ic1 / 1
-                    loss_ic2 = loss_ic2 / 1
-
-                    loss = loss_res + loss_ic1 + loss_ic2
-                    loss.backward()
-                    return loss
-
-                optimizer.step(closure)
-
-                # Compute loss outside of closure for logging
-                loss_res = self.res_loss(t_res, pq0_res) / 1e6
-                loss_ic1, loss_ic2 = self.ic_loss(t_ic, pq0_ic, pq0_ic_gt)
-
-                loss = loss_res + loss_ic1 + loss_ic2
-                batch_loss = loss.item()
-
-                total_loss += batch_loss
-                total_loss_res += loss_res.item()
-                total_loss_ic1 += loss_ic1.item()
-                total_loss_ic2 += loss_ic2.item()
-
-            avg_loss = total_loss / len(train_res_loader)
-            avg_loss_res = total_loss_res / len(train_res_loader)
-            avg_loss_ic1 = total_loss_ic1 / len(train_res_loader)
-            avg_loss_ic2 = total_loss_ic2 / len(train_res_loader)
-
-            self.tot_losses.append(avg_loss)
-            self.res_losses.append(avg_loss_res)
-            self.ic1_losses.append(avg_loss_ic1)
-            self.ic2_losses.append(avg_loss_ic2)
-
-            if epoch % 1 == 0:
-                print(f'Epoch {epoch}, Loss: {avg_loss:.4e}, '
-                      f'Loss_res: {avg_loss_res:.4e}, Loss_ic1: {avg_loss_ic1:.4e}, Loss_ic2: {avg_loss_ic2:.4e}')
-                if self.isvisual:
-                    self.test_visual(epoch)
-
-            if (epoch + 1) % 1 == 0:
-                save_path = (f'/home/xinmeng/pinn_bow_mass/trained_model/fa25/deeponet/'
-                             f'lbfgs_oneds_deeponet_bowmass_para_fb{self.Fb}_timelength_{self.time_length}_isfourier_{self.isfourier}_{epoch + 1}.pth')
-                self.save_model(self.model, optimizer, epoch + 1, self.tot_losses,
-                                self.res_losses, self.ic1_losses, self.ic2_losses, save_path)
-                print(f'Model saved at epoch: {epoch + 1}.')
-
-        return self.model
 
     def nmse(self, p, q):
         # Compute MSE (Mean Squared Error)
@@ -1308,84 +1190,71 @@ def load_generalize(fb):
     print(f'ncc_p:{ncc_p_mean}')
     print(f'ncc_q:{ncc_q_mean}')
 
-# Train the model
-print('...')
-isvisual = False
-isfourier = True
-fb_value = 1000
- # ori: 0.01
-# load_generalize(fb_value)
 
-optimizer_type = 'soap' #adam
-if fb_value == 1000:
-    time_length = 0.01 #todo: 0.001
-    pq_max = 2
-    fourier_sigma = 3
-    layer_size_branch = [100, 100, 100, 100, 100, 100, 100, 200]
-    layer_size_trunk = [100, 100, 100, 100, 100, 100, 100, 200]
-elif fb_value == 100:
-    time_length = 0.01
-    pq_max = 0.35
-    fourier_sigma = 1
-    layer_size_branch = [100, 100, 100, 100, 100, 100, 100, 200]
-    layer_size_trunk = [100, 100, 100, 100, 100, 100, 100, 200]
-elif fb_value == 10:
-    time_length = 0.01
-    pq_max = 0.35
-    fourier_sigma = 1
-    layer_size_branch = [100, 100, 100, 100, 100, 100, 100, 200]
-    layer_size_trunk = [100, 100, 100, 100, 100, 100, 100, 200]
-trainer = Trainer(isvisual=isvisual, isfourier=isfourier, fb_value=fb_value, pq_max=pq_max,
-                  time_length=time_length, fourier_sigma = fourier_sigma,
-                  layer_size_branch= layer_size_branch, layer_size_trunk= layer_size_trunk, optimizer_type = optimizer_type)
+if __name__ == "__main__":
 
-# trainer.train()
-# trainer.train_lr_anneal()
-# trainer.train_lr_anneal_hybrid()
-# print('')
-# take 1
-# if fb_value == 10:
-#     test_anneal_path = "/home/xinmeng/pinn_bow_mass/trained_model/fa25/deeponet/lr_anneal_soap_oneds_deeponet_bowmass_fb10_timelength_0.01_isfourier_True_itr100000.pth"
-# elif fb_value == 100:
-#     test_anneal_path = "/home/xinmeng/pinn_bow_mass/trained_model/fa25/deeponet/lr_anneal_soap_oneds_deeponet_bowmass_fb100_timelength_0.01_isfourier_True_itr40000.pth"
-# elif fb_value == 1000:
-#     test_anneal_path = "/home/xinmeng/pinn_bow_mass/trained_model/fa25/deeponet/lr_anneal_soap_oneds_deeponet_bowmass_fb1000_timelength_0.01_isfourier_True_sigma_3_itr80000.pth"
-# todo, take 2
-if fb_value == 10:
-    test_anneal_path = ("/home/xinmeng/pinn_bow_mass/trained_model/fa25/deeponet/"
-                        "dafx_lr_anneal_soap_oneds_deeponet_bowmass_fb10_timelength_0.01_isfourier_True_sigma_1_itr250000.pth")
-    trainer.test_anneal(test_anneal_path)
-    # trainer.test_hessian(test_anneal_path)
-    # trainer.test_generalize(test_anneal_path)
-elif fb_value == 100:
-    test_anneal_path = ("/home/xinmeng/pinn_bow_mass/trained_model/fa25/deeponet/"
-                        "dafx_lr_anneal_soap_oneds_deeponet_bowmass_fb100_timelength_0.01_isfourier_True_sigma_1_itr150000.pth")
-    trainer.test_anneal(test_anneal_path)
-    # trainer.test_hessian(test_anneal_path)
-    # trainer.test_generalize(test_anneal_path)
-elif fb_value == 1000:
-    test_anneal_path = ("/home/xinmeng/pinn_bow_mass/trained_model/fa25/deeponet/"
-                        "dafx_lr_anneal_soap_oneds_deeponet_bowmass_fb1000_timelength_0.01_isfourier_True_sigma_3_itr100000.pth")
-    # "dafx_hybrid_lr_anneal_soap_oneds_deeponet_bowmass_fb1000_timelength_0.01_isfourier_True_sigma_3_itr300000.pth")
-    trainer.test_anneal(test_anneal_path)
-    # trainer.test_hessian(test_anneal_path)
-    # trainer.test_generalize(test_anneal_path)
-    # test_anneal_path = ("/home/xinmeng/pinn_bow_mass/trained_model/fa25/deeponet/"
-    #                     "dafx_no_anneal_soap_oneds_deeponet_bowmass_fb1000_timelength_0.01_isfourier_True_sigma_3_itr18000.pth")
-    # trainer.test(test_anneal_path)
+    isvisual = False
+    isfourier = True
+    fb_value = 1000
 
-#{optimizer_type}
-# trainer.test_hessian(test_anneal_path) #{optimizer_type}
+    is_train = False
+    is_hybrid = True
+    if fb_value != 1000:
+        is_hybrid = False
+    is_test = True
+    is_test_hessian = False
+    is_test_generalize = False
 
-# test_path = (f'/home/xinmeng/pinn_bow_mass/trained_model/fa25/'
-#                              f'ic0_oneds_deeponet_bowmass_soap_fb{fb_value}_timelength_{time_length}_isfourier_{isfourier}_10000.pth')
-# trainer.test(test_path)
+     # ori: 0.01
+    # load_generalize(fb_value)
 
-# continue_path = (f'/home/xinmeng/pinn_bow_mass/trained_model/fa25/'
-#                              f'oneds_deeponet_bowmass_fb{fb_value}_timelength_{time_length}_isfourier_True_731.pth')
-# continue_path = (f'/home/xinmeng/pinn_bow_mass/trained_model/fa25/'
-#                              f'oneds_deeponet_bowmass_fb{fb_value}_timelength_{time_length}_isfourier_{isfourier}_500.pth')
+    optimizer_type = 'soap' #adam
+    if fb_value == 1000:
+        time_length = 0.01 #todo: 0.001
+        pq_max = 2
+        fourier_sigma = 3
+        layer_size_branch = [100, 100, 100, 100, 100, 100, 100, 200]
+        layer_size_trunk = [100, 100, 100, 100, 100, 100, 100, 200]
+    elif fb_value == 100:
+        time_length = 0.01
+        pq_max = 0.35
+        fourier_sigma = 1
+        layer_size_branch = [100, 100, 100, 100, 100, 100, 100, 200]
+        layer_size_trunk = [100, 100, 100, 100, 100, 100, 100, 200]
+    elif fb_value == 10:
+        time_length = 0.01
+        pq_max = 0.35
+        fourier_sigma = 1
+        layer_size_branch = [100, 100, 100, 100, 100, 100, 100, 200]
+        layer_size_trunk = [100, 100, 100, 100, 100, 100, 100, 200]
+    trainer = Trainer(isvisual=isvisual, isfourier=isfourier, fb_value=fb_value, pq_max=pq_max,
+                      time_length=time_length, fourier_sigma = fourier_sigma,
+                      layer_size_branch= layer_size_branch, layer_size_trunk= layer_size_trunk, optimizer_type = optimizer_type)
+    root_path = "../saved_data"
 
-# trainer.continue_train_lbfgs(continue_path)
+    if is_train:
+        if is_hybrid:
+            trainer.train_lr_anneal_hybrid()
+        else:
+            trainer.train_lr_anneal()
 
-# todo: screen fb: time_length=0.005
+    if is_test or is_test_hessian or is_test_generalize:
+
+        if fb_value == 10:
+            test_anneal_path = ("dafx_lr_anneal_soap_oneds_deeponet_bowmass_fb10_timelength_0.01_isfourier_True_sigma_1_itr250000.pth")
+        elif fb_value == 100:
+            test_anneal_path = ("dafx_lr_anneal_soap_oneds_deeponet_bowmass_fb100_timelength_0.01_isfourier_True_sigma_1_itr150000.pth")
+        elif fb_value == 1000:
+            if is_hybrid:
+                test_anneal_path = ("dafx_hybrid_lr_anneal_soap_oneds_deeponet_bowmass_fb1000_timelength_0.01_isfourier_True_sigma_3_itr300000.pth")
+            else:
+                test_anneal_path = ("dafx_lr_anneal_soap_oneds_deeponet_bowmass_fb1000_timelength_0.01_isfourier_True_sigma_3_itr100000.pth")
+
+        if is_test:
+            trainer.test_anneal(os.path.join(root_path, "trained_model/deeponet",test_anneal_path))
+        if is_test_hessian:
+            trainer.test_hessian(os.path.join(root_path, "trained_model/deeponet",test_anneal_path))
+        if is_test_generalize:
+            trainer.test_generalize(os.path.join(root_path, "trained_model/deeponet",test_anneal_path))
+
+

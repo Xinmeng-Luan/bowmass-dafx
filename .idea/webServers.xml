@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="8fc05d53-6775-4d56-bebb-efd7fc80c574" name="caml_bow">
+        <fileTransfer rootFolder="/home/xinmeng" accessType="SFTP" host="10.65.6.72" port="22" sshConfigId="b7405f9d-c658-4052-b7d2-967893757975" sshConfig="caml" keyPair="true">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
