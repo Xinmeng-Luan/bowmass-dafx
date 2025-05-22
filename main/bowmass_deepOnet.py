@@ -1059,7 +1059,7 @@ class Trainer:
 
             with open(
                     f'/home/xinmeng/pinn_bow_mass/trained_model/fa25/export_figure/'
-                    f'fb_{self.Fb}_deeponet_hybrid.pkl',
+                    f'fb_{self.Fb}_deeponet_hybrid_0.0276.pkl',
                     "wb") as f:
                 pickle.dump((t_deeponet, p_deeponet, q_deeponet), f)
 
@@ -1167,12 +1167,12 @@ class Trainer:
             'ncc_q_mean': ncc_q_mean
         }
 
-        # Specify the filename for saving
-        filename = f'/home/xinmeng/pinn_bow_mass/trained_model/fa25/export_figure/deeponet_generalize_metrics_fb{self.Fb}.pkl'
-
-        # Save using pickle
-        with open(filename, 'wb') as f:
-            pickle.dump(data, f)
+        # # Specify the filename for saving
+        # filename = f'/home/xinmeng/pinn_bow_mass/trained_model/fa25/export_figure/deeponet_generalize_metrics_fb{self.Fb}.pkl'
+        #
+        # # Save using pickle
+        # with open(filename, 'wb') as f:
+        #     pickle.dump(data, f)
 
 
 def load_generalize(fb):
@@ -1203,7 +1203,7 @@ if __name__ == "__main__":
         is_hybrid = False
     is_test = True
     is_test_hessian = False
-    is_test_generalize = False
+    is_test_generalize =True
 
      # ori: 0.01
     # load_generalize(fb_value)

@@ -44,16 +44,16 @@ def merge_pinn_result(pinn_path_1, pinn_path_2, pinn_path_3, pinn_path_4=None, p
 fb = 100
 
 if fb == 1000:
-    deeponet_path = f"/home/xinmeng/pinn_bow_mass/trained_model/fa25/export_figure/fb_{fb}_deeponet_hybrid.pkl"
+    deeponet_path = f"../saved_data/saved_tpq/fb_{fb}_deeponet_hybrid.pkl"
 else:
-    deeponet_path = f"/home/xinmeng/pinn_bow_mass/trained_model/fa25/export_figure/fb_{fb}_deeponet.pkl"
+    deeponet_path = f"../saved_data/saved_tpq/fb_{fb}_deeponet.pkl"
 
-pinn_path_1 = f"/home/xinmeng/pinn_bow_mass/trained_model/fa25/export_figure/fb_{fb}_pinn_nn1.pkl"
-pinn_path_2 = f"/home/xinmeng/pinn_bow_mass/trained_model/fa25/export_figure/fb_{fb}_pinn_nn2.pkl"
-pinn_path_3 = f"/home/xinmeng/pinn_bow_mass/trained_model/fa25/export_figure/fb_{fb}_pinn_nn3.pkl"
+pinn_path_1 = f"../saved_data/saved_tpq/fb_{fb}_pinn_nn1.pkl"
+pinn_path_2 = f"../saved_data/saved_tpq/fb_{fb}_pinn_nn2.pkl"
+pinn_path_3 = f"../saved_data/saved_tpq/fb_{fb}_pinn_nn3.pkl"
 if fb==1000:
-    pinn_path_4 = f"/home/xinmeng/pinn_bow_mass/trained_model/fa25/export_figure/fb_{fb}_pinn_nn4.pkl"
-    pinn_path_5 = f"/home/xinmeng/pinn_bow_mass/trained_model/fa25/export_figure/fb_{fb}_pinn_nn5.pkl"
+    pinn_path_4 = f"../saved_data/saved_tpq/fb_{fb}_pinn_nn4.pkl"
+    pinn_path_5 = f"../saved_data/saved_tpq/fb_{fb}_pinn_nn5.pkl"
 else:
     pinn_path_4 = None
     pinn_path_5 = None

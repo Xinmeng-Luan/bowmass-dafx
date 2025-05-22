@@ -623,8 +623,8 @@ if __name__ == "__main__":
 
     fb_value = 100
     nn_num = 1
-    is_train = False
-    is_test = True
+    is_train = True
+    is_test = False
     is_test_hessian = False
 
     if fb_value == 1000:
