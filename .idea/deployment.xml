@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="caml (11)" autoUploadExternalChanges="true">
+  <component name="PublishConfigData" autoUpload="Always" serverName="caml (11)" confirmBeforeDeletion="false" autoUploadExternalChanges="true">
+    <option name="confirmBeforeDeletion" value="false" />
     <serverData>
       <paths name="caml (11)">
         <serverdata>
