@@ -28,6 +28,7 @@ This repository contains the implementation of the methods described in our pape
 
 ## Sound Samples
 
-Coming soon!
+- `.wav` files are located in the `audio` directory.
+
 
 
